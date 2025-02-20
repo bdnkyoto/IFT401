@@ -1,27 +1,32 @@
 from flask import Flask, render_template
-from flask_bootstrap import Bootstrap5 
+from flask_bootstrap import Bootstrap5
 
 app = Flask(__name__)
 
 bootstrap = Bootstrap5(app)
 
-@app.route('/') 
+@app.route('/')
 
 def home():
     return render_template('portfolio.html')
 
-@app.route('/portfolio') 
+@app.route('/portfolio')
 
 def portfolio():
-    return render_template('portfolio.html') 
+    return render_template('portfolio.html')
 
 
-@app.route('/trade') 
+@app.route('/trade')
 
 def trade():
-    return render_template('trade.html') 
+    return render_template('trade.html')
 
-if __name__ == '__main__':    
+@app.route('/admin')
+
+def admin():
+    return render_template('admin.html')
+
+if __name__ == '__main__':
     app.run(debug=True)
 
      #.\venv\Scripts\activate To Start Virtual

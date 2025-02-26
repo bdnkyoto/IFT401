@@ -41,8 +41,10 @@
             <div class="collapse navbar-collapse" id="navbarNav">
 
                 <ul class="navbar-nav">
+                    {% if current_user.is_authenticated %}
 
                     <li class="nav-item">
+
 
                         <a class="nav-link" href="{{ url_for('portfolio') }}">Portfolio</a>
 
@@ -60,6 +62,23 @@
 
                     </li>
 
+                    {% endif %}
+
+                </ul>
+
+                <ul class="navbar-nav ms-auto">
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a href="{{ url_for('login') }}" class="btn btn-outline-light me-2">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('register') }}" class="btn btn-primary">Sign Up</a>
+                    </li>
+                    {% endif %}
                 </ul>
 
             </div>

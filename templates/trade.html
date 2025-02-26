@@ -5,9 +5,38 @@
 {% block content %}
 
 
-<h1>Trade</h1>
-
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Trade</title>
+    <style>
+        h1 { color: green; }
+    </style>
+</head>
+<body>
+    <nav>
+        <!-- <ul>
+            <li><a href="/login">Login</a></li>
+            <li><a href="/register">Create account</a></li>
+            {% if current_user.is_authenticated %}
+                <li><a href="/logout">Logout</a></li>
+            {% endif %}
+        </ul> -->
+    </nav>
+    {% if current_user.is_authenticated %}
+        <h1>Welcome, {{ current_user.username }}!</h1>
+        {% if current_user.role == "admin" %}
+            <h2>Admin Dashboard</h2>
+            <p>This is visible only to admins: Manage users, settings, etc.</p>
+        {% elif current_user.role == "user" %}
+            <h2>Trade</h2>
+        {% endif %}
+    {% else %}
+        <h1>You are not logged in</h1>
+    {% endif %}
+</body>
+</html>
 
 
 

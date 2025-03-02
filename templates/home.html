@@ -1,41 +1,130 @@
 {% extends "base.html"%}
 
-{% block title %}Admin Dashboard{% endblock %}
+{% block title %}Trading Platform{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h1 class="mb-4">Admin Dashboard</h1>
+    <h1 class="mb-4">Trading Dashboard</h1>
 
+    <!-- Market Overview Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Market Overview</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-light">1D</button>
+                        <button class="btn btn-sm btn-outline-light">1W</button>
+                        <button class="btn btn-sm btn-outline-light">1M</button>
+                        <button class="btn btn-sm btn-outline-light">1Y</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div style="height: 250px;" class="bg-light d-flex justify-content-center align-items-center">
+                        <p class="text-muted">Market Chart Placeholder</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popular Assets and Portfolio -->
     <div class="row">
-        <div class="col-md-4">
+        <!--Assets -->
+        <div class="col-md-8">
             <div class="card mb-3">
                 <div class="card-header">
-                    <h5>Users Management</h5>
+                    <h5>Top Performing Assets</h5>
                 </div>
-                <div class="card-body">
-                    <a href="#" class="btn btn-primary">Manage Users</a>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Asset</th>
+                                <th>Price</th>
+                                <th>Change (24h)</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Bitcoin (BTC)</td>
+                                <td>$90,235.20</td>
+                                <td class="text-success">+2.3%</td>
+                                <td><button class="btn btn-sm btn-primary">Trade</button></td>
+                            </tr>
+                            <tr>
+                                <td>Ethereum (ETH)</td>
+                                <td>$3,521.75</td>
+                                <td class="text-success">+1.8%</td>
+                                <td><button class="btn btn-sm btn-primary">Trade</button></td>
+                            </tr>
+                            <tr>
+                                <td>Apple Inc. (AAPL)</td>
+                                <td>$178.45</td>
+                                <td class="text-danger">-0.5%</td>
+                                <td><button class="btn btn-sm btn-primary">Trade</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="#" class="btn btn-link">View All Assets</a>
                 </div>
             </div>
         </div>
 
+        <!-- Portfolio Summary -->
         <div class="col-md-4">
             <div class="card mb-3">
                 <div class="card-header">
-                    <h5>Content Management</h5>
+                    <h5>Your Portfolio</h5>
                 </div>
                 <div class="card-body">
-                    <a href="#" class="btn btn-primary">Manage Content</a>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="text-light">Total Balance</span>
+                        <span class="text-light">$24,567.89</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="text-light">24h Change</span>
+                        <span class="text-success">+$452.30 (1.87%)</span>
+                    </div>
+                    <div class="d-grid gap-2 mt-3">
+                        <a href="#" class="btn btn-success">Deposit</a>
+                        <a href="#" class="btn btn-outline-danger">Withdraw</a>
+                    </div>
                 </div>
             </div>
         </div>
+    </div>
 
+    <!-- Quick Trade and News -->
+    <div class="row">
+        <!-- Quick Trade -->
         <div class="col-md-4">
             <div class="card mb-3">
                 <div class="card-header">
-                    <h5>Settings</h5>
+                    <h5>Quick Trade</h5>
                 </div>
                 <div class="card-body">
-                    <a href="#" class="btn btn-primary">System Settings</a>
+                    <form>
+                        <div class="mb-3">
+                            <label for="asset" class="form-label">Select Asset</label>
+                            <select class="form-select" id="asset">
+                                <option>Bitcoin (BTC)</option>
+                                <option>Ethereum (ETH)</option>
+                                <option>Apple Inc. (AAPL)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">Amount</label>
+                            <input type="number" class="form-control" id="amount" placeholder="0.00">
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-success">Buy</button>
+                            <button type="button" class="btn btn-danger">Sell</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

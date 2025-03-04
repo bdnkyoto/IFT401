@@ -4,3 +4,4 @@ flask_login
 bootstrap-flask
 pymysql
 cryptography
+flask_bcrypt

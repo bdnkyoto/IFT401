@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, url_for, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask_bootstrap import Bootstrap5 
+from flask_bootstrap import Bootstrap5
+from flask_bcrypt import Bcrypt
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost/Stock_Trading_Users'
@@ -27,6 +28,8 @@ with app.app_context():
 def load_user(user_id):
     return Users.query.get(int(user_id))
 
+bcrypt = Bcrypt(app)
+
 @app.route('/')
 def home():
     return render_template("home.html")
@@ -50,9 +53,10 @@ def admin():
 @app.route('/register', methods=["GET", "POST"])
 def register():
     if request.method == "POST":
+        hashed_password = bcrypt.generate_password_hash(request.form.get("password")).decode('utf-8')
         user = Users(
             username=request.form.get("username"),
-            password=request.form.get("password"),  # Note: In production, hash passwords!
+            password=hashed_password,  # Note: In production, hash passwords!
             role="user"  # Default role is "user"
         )
         db.session.add(user)
@@ -65,7 +69,7 @@ def register():
 def login():
     if request.method == "POST":
         user = Users.query.filter_by(username=request.form.get("username")).first()
-        if user and user.password == request.form.get("password"):
+        if user and bcrypt.check_password_hash(user.password, request.form.get("password")):
             login_user(user)
             return redirect(url_for("portfolio"))
     return render_template("login.html")

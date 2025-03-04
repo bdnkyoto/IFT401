@@ -67,6 +67,11 @@
                     </li>
                 </ul>
                 <ul class="navbar-nav ms-auto">
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+                    </li>
+                    {% else %}
                     <li class="nav-item me-2">
                         <a href="{{ url_for('login') }}" class="btn btn-outline-light">
                             <i class="fas fa-sign-in-alt me-1"></i> Login
@@ -77,16 +82,11 @@
                             <i class="fas fa-user-plus me-1"></i> Sign Up
                         </a>
                     </li>
-                    {% if current_user.is_authenticated %}
-                    <li class="nav-item">
-                        <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
-                    </li>
                     {% endif %}
                 </ul>
             </div>
         </div>
     </nav>
-
     <!-- Main Content -->
     <div class="container mt-4">
         {% block content %}

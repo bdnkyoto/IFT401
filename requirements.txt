@@ -2,3 +2,5 @@ flask
 flask_sqlalchemy
 flask_login
 bootstrap-flask
+pymysql
+cryptography

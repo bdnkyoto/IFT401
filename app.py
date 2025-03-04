@@ -1,11 +1,13 @@
-from flask import Flask, render_template, request, url_for, redirect
+from flask import Flask, render_template, request, url_for, redirect, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_bootstrap import Bootstrap5
 from flask_bcrypt import Bcrypt
+from functools import wraps
+
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost/Stock_Trading_Users'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:Spartan117@localhost/Stock_Trading_Users'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your-secret-key'
 
@@ -30,6 +32,14 @@ def load_user(user_id):
 
 bcrypt = Bcrypt(app)
 
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != "admin":
+            return redirect(url_for("home"))
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/')
 def home():
     return render_template("home.html")
@@ -46,6 +56,8 @@ def trade():
     return render_template('trade.html')
 
 @app.route('/admin')
+@login_required
+@admin_required
 
 def admin():
     return render_template('admin.html')

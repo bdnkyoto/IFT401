@@ -37,6 +37,38 @@
 </body>
 </html>
 
+<div class="container">
+    <h1>Your Portfolio</h1>
+    <ul class="list-group">
+        {% for transaction in transactions %}
+            <li class="list-group-item">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Stock:</strong> {{ transaction.stock_owned }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Name:</strong> {{ transaction.name }}
+                    </div>
+                    <div class="col-md-2">
+                        <strong>Quantity:</strong> {{ transaction.quantity }}
+                    </div>
+                    <div class="col-md-2">
+                        <strong>Price Purchased:</strong> ${{ transaction.price_purchased }}
+                    </div>
+                    <div class="col-md-2">
+                        <strong>Total Value:</strong> ${{ transaction.quantity * transaction.price_purchased }}
+                    </div>
+                </div>
+            </li>
+        {% else %}
+            <li class="list-group-item">
+                <div class="text-center">
+                    No transactions found.
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
 
 
 

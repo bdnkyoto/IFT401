@@ -69,6 +69,11 @@
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('portfolio') }}">
+                            <i class="fas fa-coins me-1"></i> Cash: ${{ current_user.money }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
                     </li>
                     {% else %}

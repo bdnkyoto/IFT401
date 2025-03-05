@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Preview{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Stock Preview</h1>
+    <div class="row">
+        <div class="col-md-6">
+            <table class="table table-dark table-striped">
+                <tbody>
+                    <tr>
+                        <th>Symbol</th>
+                        <td>{{ stock_info.symbol }}</td>
+                    </tr>
+                    <tr>
+                        <th>Name</th>
+                        <td>{{ stock_info.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Market</th>
+                        <td>{{ stock_info.market }}</td>
+                    </tr>
+                    <tr>
+                        <th>Ask Price</th>
+                        <td>{{ stock_info.askPrice }}</td>
+                    </tr>
+                    <tr>
+                        <th>Increase/Decrease</th>
+                        <td>{{ stock_info.increaseDecrease }}</td>
+                    </tr>
+                    <tr>
+                        <th>Percent Increase/Decrease</th>
+                        <td>{{ stock_info.percentChange }}</td>
+                    </tr>
+                    <tr>
+                        <th>Volume</th>
+                        <td>{{ stock_info.volume }}</td>
+                    </tr>
+                    <tr>
+                        <th>Day High</th>
+                        <td>{{ stock_info.dayHigh }}</td>
+                    </tr>
+                    <tr>
+                        <th>Day Low</th>
+                        <td>{{ stock_info.dayLow }}</td>
+                    </tr>
+                    <tr>
+                        <th>You Own</th>
+                        <td>{{ stock_info.user_owns_quantity }} shares</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Trade Form -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <form method="POST" action="{{ url_for('purchase_stock') }}">
+                <div class="mb-3">
+                    <label for="action" class="form-label">Action</label>
+                    <select class="form-select" id="action" name="action" required>
+                        <option value="buy">Buy</option>
+                        <option value="sell">Sell</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="quantity" class="form-label">Quantity</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="quantity" name="quantity" min="1" required>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setMaxQuantity()">Max</button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <input type="hidden" name="symbol" value="{{ stock_info.symbol }}">
+                    <input type="hidden" name="price" value="{{ stock_info.askPrice }}">
+                    <button type="submit" class="btn btn-success" name="purchase">Confirm</button>
+                    <a href="{{ url_for('trade') }}" class="btn btn-danger">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Max Button -->
+<script>
+    function setMaxQuantity() {
+        const action = document.getElementById('action').value;
+        const price = parseFloat("{{ stock_info.askPrice }}");
+        const userMoney = parseFloat("{{ current_user.money }}");
+        const userOwnsQuantity = parseFloat("{{ stock_info.user_owns_quantity }}");
+
+        let maxQuantity;
+
+        if (action === 'buy') {
+            // Calculate maximum quantity the user can buy
+            maxQuantity = Math.floor(userMoney / price);
+        } else if (action === 'sell') {
+            // Set maximum quantity to the amount the user owns
+            maxQuantity = userOwnsQuantity;
+        }
+
+        // Set the value of the quantity input
+        document.getElementById('quantity').value = maxQuantity;
+    }
+</script>
+{% endblock %}

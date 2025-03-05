@@ -4,6 +4,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from flask_bootstrap import Bootstrap5
 from flask_bcrypt import Bcrypt
 from functools import wraps
+import yfinance as yf
 
 
 app = Flask(__name__)
@@ -21,7 +22,19 @@ class Users(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(250), unique=True, nullable=False)
     password = db.Column(db.String(250), nullable=False)
+    money = db.Column(db.Float(10), nullable=False)
     role = db.Column(db.String(50), default="user", nullable=False)
+
+
+class StocksOwned(db.Model):
+    transaction_id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    stock_owned = db.Column(db.String(50), nullable=False)
+    name = db.Column(db.String(250), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    price_purchased = db.Column(db.Float(10), nullable=False)
+
+    user = db.relationship('Users', backref=db.backref('stocks_owned', lazy=True))
 
 with app.app_context():
     db.create_all()
@@ -45,15 +58,117 @@ def home():
     return render_template("home.html")
 
 @app.route('/portfolio')
-
+@login_required
 def portfolio():
-    return render_template('portfolio.html')
-
+    
+    transactions = StocksOwned.query.filter_by(id=current_user.id).all()
+    return render_template('portfolio.html', transactions=transactions)
 
 @app.route('/trade')
-
+@login_required
 def trade():
     return render_template('trade.html')
+
+
+@app.route('/stock_preview')
+@login_required
+def stock_preview():
+    symbol = request.args.get('symbol')
+    if not symbol:
+        flash('No symbol provided', 'error')
+        return redirect(url_for('trade'))
+
+    try:
+        stock = yf.Ticker(symbol)
+        info = stock.info
+
+        # Calculate increase/decrease and percent change
+        current_price = info.get('currentPrice', info.get('regularMarketPrice'))
+        previous_close = info.get('previousClose')
+        increase_decrease = current_price - previous_close
+        percent_change = (increase_decrease / previous_close) * 100
+
+        user_owns = StocksOwned.query.filter_by(id=current_user.id, stock_owned=symbol).first()
+        user_owns_quantity = user_owns.quantity if user_owns else 0
+
+        stock_info = {
+            'symbol': symbol.upper(),
+            'name': info.get('longName', 'N/A'),
+            'market': info.get('market', 'N/A'),
+            'increaseDecrease': f"{increase_decrease:.2f}",
+            'percentChange': f"{percent_change:.2f}%",
+            'volume': info.get('volume', 'N/A'),
+            'dayHigh': info.get('dayHigh', 'N/A'),
+            'dayLow': info.get('dayLow', 'N/A'),
+            'askPrice': info.get('ask', 'N/A'),
+            'user_owns_quantity': user_owns_quantity
+        }
+        return render_template('stock_preview.html', stock_info=stock_info)
+    except Exception as e:
+        flash(f'Error fetching stock data: {str(e)}', 'error')
+        return redirect(url_for('trade'))
+    
+
+@app.route('/purchase_stock', methods=['POST'])
+@login_required
+def purchase_stock():
+    action = request.form.get('action')
+    quantity = int(request.form.get('quantity'))
+    symbol = request.form.get('symbol')
+    price = float(request.form.get('price'))
+
+    # Fetch stock name from yfinance
+    stock = yf.Ticker(symbol)
+    stock_name = stock.info.get('longName', 'N/A')
+
+    if action == 'buy':
+        total_cost = quantity * price
+
+        if current_user.money < total_cost:
+            flash('Insufficient funds', 'error')
+        else:
+            # Deduct funds from the user
+            current_user.money -= total_cost
+
+            # Create an entry in the StocksOwned table
+            new_stock = StocksOwned(
+                id=current_user.id,
+                stock_owned=symbol,
+                name=stock_name,
+                quantity=quantity,
+                price_purchased=price
+            )
+            db.session.add(new_stock)
+            db.session.commit()
+            flash('Purchase successful!', 'success')
+
+    elif action == 'sell':
+        # Check if the user owns the stock and has enough quantity
+        stock_owned = StocksOwned.query.filter_by(id=current_user.id, stock_owned=symbol).first()
+
+        if not stock_owned:
+            flash('You do not own this stock', 'error')
+        elif stock_owned.quantity < quantity:
+            flash('You do not have enough shares to sell', 'error')
+        else:
+            # Calculate total value of the sale
+            total_value = quantity * price
+
+            # Add funds to the user
+            current_user.money += total_value
+
+            # Update or remove the stock from StocksOwned
+            if stock_owned.quantity == quantity:
+                # Remove the stock if the user sells all shares
+                db.session.delete(stock_owned)
+            else:
+                # Reduce the quantity if the user sells some shares
+                stock_owned.quantity -= quantity
+
+            db.session.commit()
+            flash('Sale successful!', 'success')
+
+    return redirect(url_for('trade'))
 
 @app.route('/admin')
 @login_required
@@ -68,8 +183,9 @@ def register():
         hashed_password = bcrypt.generate_password_hash(request.form.get("password")).decode('utf-8')
         user = Users(
             username=request.form.get("username"),
-            password=hashed_password,  # Note: In production, hash passwords!
-            role="user"  # Default role is "user"
+            password=hashed_password, 
+            role="user",  # Default role is "user"
+            money = 100000
         )
         db.session.add(user)
         db.session.commit()
@@ -87,7 +203,6 @@ def login():
     return render_template("login.html")
 
 @app.route('/logout')
-@login_required
 def logout():
     logout_user()
     return redirect(url_for("home"))

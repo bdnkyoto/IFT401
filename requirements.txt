@@ -5,3 +5,4 @@ bootstrap-flask
 pymysql
 cryptography
 flask_bcrypt
+yfinance

@@ -21,7 +21,7 @@
             {% endif %}
         </ul> -->
     </nav>
-    {% if current_user.is_authenticated %}
+    <!-- {% if current_user.is_authenticated %}
         <h1>Welcome, {{ current_user.username }}!</h1>
         {% if current_user.role == "admin" %}
             <h2>Admin Dashboard</h2>
@@ -31,11 +31,21 @@
         {% endif %}
     {% else %}
         <h1>You are not logged in</h1>
-    {% endif %}
+    {% endif %} -->
 </body>
 </html>
 
-
+<div class="container">
+    <h1>Trade</h1>
+    <div class="row">
+        <div class="col-md-6">
+            <form id="stockForm" action="{{ url_for('stock_preview') }}" method="GET">
+                <div class="mb-3">
+                    <label for="symbol" class="form-label">Stock Symbol</label>
+                    <input type="text" class="form-control" id="symbol" name="symbol" placeholder="Enter stock symbol (e.g., AAPL)" required>
+                </div>
+                <button type="submit" class="btn btn-primary" id="previewButton">Preview</button>
+            </form>
 
 
 

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Cash Management{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Cash Management</h1>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Your Cash Balance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="account-balance mb-4">${{ current_user.money|round(2) }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Deposit/Withdraw Funds</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('cash_management') }}">
+                        <div class="mb-3">
+                            <label for="action" class="form-label">Action</label>
+                            <select class="form-select" id="action" name="action">
+                                <option value="deposit">Deposit</option>
+                                <option value="withdraw">Withdraw</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">Amount ($)</label>
+                            <input type="number" step="0.01" min="0.01" class="form-control" id="amount" name="amount" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <button type="submit" class="btn btn-success w-100">Submit</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

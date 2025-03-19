@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction History{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Transaction History</h1>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Your Transactions</h5>
+            <div>
+                <a href="{{ url_for('portfolio') }}" class="btn btn-sm btn-outline-light">
+                    <i class="fas fa-arrow-left me-1"></i> Back to Portfolio
+                </a>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Symbol</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in transactions %}
+                        <tr>
+                            <td>{{ transaction.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                {% if transaction.transaction_type == 'buy' %}
+                                    <span class="badge bg-success">Buy</span>
+                                {% elif transaction.transaction_type == 'sell' %}
+                                    <span class="badge bg-danger">Sell</span>
+                                {% elif transaction.transaction_type == 'deposit' %}
+                                    <span class="badge bg-primary">Deposit</span>
+                                {% elif transaction.transaction_type == 'withdraw' %}
+                                    <span class="badge bg-warning">Withdraw</span>
+                                {% elif transaction.transaction_type == 'buy_cancelled' %}
+                                    <span class="badge bg-secondary">Buy Cancelled</span>
+                                {% elif transaction.transaction_type == 'sell_cancelled' %}
+                                    <span class="badge bg-secondary">Sell Cancelled</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ transaction.symbol if transaction.symbol else 'N/A' }}</td>
+                            <td>{{ transaction.quantity if transaction.quantity else 'N/A' }}</td>
+                            <td>{{ '$' + transaction.price|round(2)|string if transaction.price else 'N/A' }}</td>
+                            <td>${{ transaction.amount|round(2) }}</td>
+                            <td>
+                                {% if transaction.status == 'completed' %}
+                                    <span class="badge bg-success">Completed</span>
+                                {% elif transaction.status == 'pending' %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% elif transaction.status == 'cancelled' %}
+                                    <span class="badge bg-danger">Cancelled</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center">No transaction history available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

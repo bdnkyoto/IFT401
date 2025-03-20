@@ -50,8 +50,8 @@
                             </td>
                             <td>{{ transaction.symbol if transaction.symbol else 'N/A' }}</td>
                             <td>{{ transaction.quantity if transaction.quantity else 'N/A' }}</td>
-                            <td>{{ '$' + transaction.price|round(2)|string if transaction.price else 'N/A' }}</td>
-                            <td>${{ transaction.amount|round(2) }}</td>
+                            <td>{{ transaction.price|currency|string if transaction.price else 'N/A' }}</td>
+                            <td>{{ transaction.amount|currency }}</td>
                             <td>
                                 {% if transaction.status == 'completed' %}
                                     <span class="badge bg-success">Completed</span>

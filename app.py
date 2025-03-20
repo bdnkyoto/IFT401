@@ -6,6 +6,7 @@ from flask_bcrypt import Bcrypt
 from functools import wraps
 import yfinance as yf
 import datetime
+import random
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost/Stock_Trading_Users'
@@ -17,6 +18,16 @@ bootstrap = Bootstrap5(app)
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+
+@app.template_filter('currency')
+def currency_format(value):
+    return "${:,.2f}".format(value)
+
+app.jinja_env.filters['currency'] = currency_format
+
+def get_random_modifier():
+    return random.uniform(-0.05, 0.05)
 
 class Users(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -195,6 +206,21 @@ def stock_preview():
         user_owns = StocksOwned.query.filter_by(id=current_user.id, stock_owned=symbol).first()
         user_owns_quantity = user_owns.quantity if user_owns else 0
 
+        # Generate a random modifier for the ask price, day high, and day low
+        random_modifier = get_random_modifier()
+
+        # Apply the random modifier to the ask price, day high, and day low
+        ask_price = info.get('ask', 'N/A')
+        day_high = info.get('dayHigh', 'N/A')
+        day_low = info.get('dayLow', 'N/A')
+
+        if ask_price != 'N/A':
+            ask_price *= (1 + random_modifier)  # Apply random modifier
+        if day_high != 'N/A':
+            day_high *= (1 + random_modifier)  # Apply random modifier
+        if day_low != 'N/A':
+            day_low *= (1 + random_modifier)  # Apply random modifier
+
         stock_info = {
             'symbol': symbol.upper(),
             'name': info.get('longName', 'N/A'),
@@ -202,16 +228,15 @@ def stock_preview():
             'increaseDecrease': f"{increase_decrease:.2f}",
             'percentChange': f"{percent_change:.2f}%",
             'volume': info.get('volume', 'N/A'),
-            'dayHigh': info.get('dayHigh', 'N/A'),
-            'dayLow': info.get('dayLow', 'N/A'),
-            'askPrice': info.get('ask', 'N/A'),
+            'dayHigh': day_high,
+            'dayLow': day_low,
+            'askPrice': ask_price,
             'user_owns_quantity': user_owns_quantity
         }
         return render_template('stock_preview.html', stock_info=stock_info)
     except Exception as e:
         flash(f'Error fetching stock data: {str(e)}', 'error')
         return redirect(url_for('trade'))
-
 
 @app.route('/cash-management', methods=['GET', 'POST'])
 @login_required

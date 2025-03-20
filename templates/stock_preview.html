@@ -23,7 +23,7 @@
                     </tr>
                     <tr>
                         <th>Ask Price</th>
-                        <td>{{ stock_info.askPrice }}</td>
+                        <td>{{ stock_info.askPrice|currency }}</td>
                     </tr>
                     <tr>
                         <th>Increase/Decrease</th>
@@ -35,15 +35,15 @@
                     </tr>
                     <tr>
                         <th>Volume</th>
-                        <td>{{ stock_info.volume }}</td>
+                        <td>{{ "{:,}".format(stock_info.volume) }}</td>
                     </tr>
                     <tr>
                         <th>Day High</th>
-                        <td>{{ stock_info.dayHigh }}</td>
+                        <td>{{ stock_info.dayHigh|currency }}</td>
                     </tr>
                     <tr>
                         <th>Day Low</th>
-                        <td>{{ stock_info.dayLow }}</td>
+                        <td>{{ stock_info.dayLow|currency }}</td>
                     </tr>
                     <tr>
                         <th>You Own</th>
@@ -57,10 +57,10 @@
     <!-- Trade Form -->
     <div class="row mt-4">
         <div class="col-md-6">
-            <form method="POST" action="{{ url_for('purchase_stock') }}">
+            <form method="POST" action="{{ url_for('purchase_stock') }}" onsubmit="return confirmAction()">
                 <div class="mb-3">
                     <label for="action" class="form-label">Action</label>
-                    <select class="form-select" id="action" name="action" required>
+                    <select class="form-select" id="action" name="action" required onchange="updateTotalPrice()">
                         <option value="buy">Buy</option>
                         <option value="sell">Sell</option>
                     </select>
@@ -68,9 +68,13 @@
                 <div class="mb-3">
                     <label for="quantity" class="form-label">Quantity</label>
                     <div class="input-group">
-                        <input type="number" class="form-control" id="quantity" name="quantity" min="1" required>
+                        <input type="number" class="form-control" id="quantity" name="quantity" min="1" required oninput="updateTotalPrice()">
                         <button type="button" class="btn btn-outline-secondary" onclick="setMaxQuantity()">Max</button>
                     </div>
+                </div>
+                <!-- Display Total Price -->
+                <div class="mb-3">
+                    <p class="text-white" id="totalPrice">Total Price: $0.00</p>
                 </div>
                 <div class="mb-3">
                     <input type="hidden" name="symbol" value="{{ stock_info.symbol }}">
@@ -83,7 +87,7 @@
     </div>
 </div>
 
-<!-- JavaScript for Max Button -->
+<!-- JavaScript for Max Button, Total Price Calculation, and Confirmation -->
 <script>
     function setMaxQuantity() {
         const action = document.getElementById('action').value;
@@ -103,6 +107,40 @@
 
         // Set the value of the quantity input
         document.getElementById('quantity').value = maxQuantity;
+
+        // Update the total price display
+        updateTotalPrice();
+    }
+
+    function updateTotalPrice() {
+        const quantity = document.getElementById('quantity').value;
+        const price = parseFloat("{{ stock_info.askPrice }}");
+        const totalPrice = quantity * price;
+
+        // Format the total price as currency
+        const formattedTotalPrice = totalPrice.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+        });
+
+        // Update the total price display
+        document.getElementById('totalPrice').textContent = `Total Price: ${formattedTotalPrice}`;
+    }
+
+    function confirmAction() {
+        const action = document.getElementById('action').value;
+        const quantity = document.getElementById('quantity').value;
+        const price = parseFloat("{{ stock_info.askPrice }}");
+        const totalPrice = (quantity * price).toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+        });
+
+        // Confirmation message
+        const confirmationMessage = `Are you sure you would like to ${action} ${quantity} shares for ${totalPrice}?`;
+
+        // Show confirmation dialog
+        return confirm(confirmationMessage);
     }
 </script>
 {% endblock %}

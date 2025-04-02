@@ -8,6 +8,7 @@ import yfinance as yf
 import datetime
 import random
 
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost/Stock_Trading_Users'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -60,16 +61,16 @@ class Transactions(db.Model):
 
     user = db.relationship('Users', backref=db.backref('transactions', lazy=True))
 
-class PendingOrders(db.Model):
+class AvailableStock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    order_type = db.Column(db.String(10), nullable=False)  # 'buy' or 'sell'
-    symbol = db.Column(db.String(10), nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)
-    price = db.Column(db.Float(10), nullable=False)  # Market price when order was placed
-    timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)
+    company_name = db.Column(db.String(250), nullable=False)
+    ticker = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    total_volume = db.Column(db.Integer, nullable=False)
+    initial_price = db.Column(db.Float(10), nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False) # Admin can deactivate a stock
 
-    user = db.relationship('Users', backref=db.backref('pending_orders', lazy=True))
+    def __repr__(self):
+        return f'<AvailableStock {self.ticker}>'
 
 with app.app_context():
     db.create_all()
@@ -182,8 +183,31 @@ def cancel_order(order_id):
 @app.route('/trade')
 @login_required
 def trade():
-    return render_template('trade.html')
+    # Get available stocks from database
+    db_available_stocks = AvailableStock.query.filter_by(is_active=True).all()
 
+    # Create list with available volume for each stock
+    available_stocks = []
+    for stock in db_available_stocks:
+        # Calculate currently owned shares
+        total_owned = db.session.query(db.func.sum(StocksOwned.quantity)).filter_by(
+            stock_owned=stock.ticker).scalar() or 0
+
+
+        available_volume = stock.total_volume - total_owned
+
+
+        stock_info = {
+            'ticker': stock.ticker,
+            'company_name': stock.company_name,
+            'initial_price': stock.initial_price,
+            'total_volume': stock.total_volume,
+            'available_volume': available_volume
+        }
+
+        available_stocks.append(stock_info)
+
+    return render_template('trade.html', available_stocks=available_stocks)
 
 @app.route('/stock_preview')
 @login_required
@@ -193,50 +217,81 @@ def stock_preview():
         flash('No symbol provided', 'error')
         return redirect(url_for('trade'))
 
-    try:
-        stock = yf.Ticker(symbol)
-        info = stock.info
 
-        # Calculate increase/decrease and percent change
-        current_price = info.get('currentPrice', info.get('regularMarketPrice'))
-        previous_close = info.get('previousClose')
-        increase_decrease = current_price - previous_close
-        percent_change = (increase_decrease / previous_close) * 100
+    admin_stock = AvailableStock.query.filter_by(ticker=symbol, is_active=True).first()
 
-        user_owns = StocksOwned.query.filter_by(id=current_user.id, stock_owned=symbol).first()
-        user_owns_quantity = user_owns.quantity if user_owns else 0
 
-        # Generate a random modifier for the ask price, day high, and day low
-        random_modifier = get_random_modifier()
+    user_owns = StocksOwned.query.filter_by(id=current_user.id, stock_owned=symbol).first()
+    user_owns_quantity = user_owns.quantity if user_owns else 0
 
-        # Apply the random modifier to the ask price, day high, and day low
-        ask_price = info.get('ask', 'N/A')
-        day_high = info.get('dayHigh', 'N/A')
-        day_low = info.get('dayLow', 'N/A')
+    if admin_stock:
 
-        if ask_price != 'N/A':
-            ask_price *= (1 + random_modifier)  # Apply random modifier
-        if day_high != 'N/A':
-            day_high *= (1 + random_modifier)  # Apply random modifier
-        if day_low != 'N/A':
-            day_low *= (1 + random_modifier)  # Apply random modifier
+        # Calculate currently available shares
+        total_owned = db.session.query(db.func.sum(StocksOwned.quantity)).filter_by(
+            stock_owned=symbol).scalar() or 0
 
+        available_shares = admin_stock.total_volume - total_owned
+
+        # Create stock_info dictionary with admin-provided data
         stock_info = {
             'symbol': symbol.upper(),
-            'name': info.get('longName', 'N/A'),
-            'market': info.get('market', 'N/A'),
-            'increaseDecrease': f"{increase_decrease:.2f}",
-            'percentChange': f"{percent_change:.2f}%",
-            'volume': info.get('volume', 'N/A'),
-            'dayHigh': day_high,
-            'dayLow': day_low,
-            'askPrice': ask_price,
-            'user_owns_quantity': user_owns_quantity
+            'name': admin_stock.company_name,
+            'market': 'Admin-managed',
+            'increaseDecrease': '0.00',
+            'percentChange': '0.00%',
+            'volume': available_shares,  # Available shares for trading
+            'totalVolume': admin_stock.total_volume,  # Total volume set by admin
+            'dayHigh': admin_stock.initial_price * 1.02,  # Simulate slight variation
+            'dayLow': admin_stock.initial_price * 0.98,   # Simulate slight variation
+            'askPrice': admin_stock.initial_price,
+            'currentPrice': admin_stock.initial_price,
+            'user_owns_quantity': user_owns_quantity,
+            'is_admin_stock': True
         }
         return render_template('stock_preview.html', stock_info=stock_info)
-    except Exception as e:
-        flash(f'Error fetching stock data: {str(e)}', 'error')
-        return redirect(url_for('trade'))
+    else:
+        # For regular yfinance stocks
+        try:
+            stock = yf.Ticker(symbol)
+            info = stock.info
+
+            # Calculate increase/decrease and percent change
+            current_price = info.get('currentPrice', info.get('regularMarketPrice'))
+            previous_close = info.get('previousClose')
+            increase_decrease = current_price - previous_close
+            percent_change = (increase_decrease / previous_close) * 100
+
+            # Generate a random modifier for the ask price, day high, and day low
+            random_modifier = get_random_modifier()
+
+            # Apply the random modifier to the ask price, day high, and day low
+            ask_price = info.get('ask', 'N/A')
+            day_high = info.get('dayHigh', 'N/A')
+            day_low = info.get('dayLow', 'N/A')
+
+            if ask_price != 'N/A':
+                ask_price *= (1 + random_modifier)  # Apply random modifier
+            if day_high != 'N/A':
+                day_high *= (1 + random_modifier)  # Apply random modifier
+            if day_low != 'N/A':
+                day_low *= (1 + random_modifier)  # Apply random modifier
+
+            stock_info = {
+                'symbol': symbol.upper(),
+                'name': info.get('longName', 'N/A'),
+                'market': info.get('market', 'N/A'),
+                'increaseDecrease': f"{increase_decrease:.2f}",
+                'percentChange': f"{percent_change:.2f}%",
+                'volume': info.get('volume', 'N/A'),
+                'dayHigh': day_high,
+                'dayLow': day_low,
+                'askPrice': ask_price,
+                'user_owns_quantity': user_owns_quantity
+            }
+            return render_template('stock_preview.html', stock_info=stock_info)
+        except Exception as e:
+            flash(f'Error fetching stock data: {str(e)}', 'error')
+            return redirect(url_for('trade'))
 
 @app.route('/cash-management', methods=['GET', 'POST'])
 @login_required
@@ -299,58 +354,78 @@ def purchase_stock():
     price = float(request.form.get('price'))
     order_type = request.form.get('order_type', 'market')  # 'market' or 'limit'
 
-    # Fetch stock name from yfinance
-    stock = yf.Ticker(symbol)
-    stock_name = stock.info.get('longName', 'N/A')
+    # Check if this stock is managed by admin
+    admin_stock = AvailableStock.query.filter_by(ticker=symbol, is_active=True).first()
+
+    # Fetch stock name from yfinance if not an admin-managed stock
+    if admin_stock:
+        stock_name = admin_stock.company_name
+    else:
+        stock = yf.Ticker(symbol)
+        stock_name = stock.info.get('longName', 'N/A')
 
     if order_type == 'market':
         # Execute order immediately (market order)
         if action == 'buy':
             total_cost = quantity * price
 
+            # Check if user has enough funds
             if current_user.money < total_cost:
                 flash('Insufficient funds', 'error')
+                return redirect(url_for('portfolio'))
+
+            # If this is an admin-managed stock, check volume availability
+            if admin_stock:
+                # Calculate currently available shares
+                total_owned = db.session.query(db.func.sum(StocksOwned.quantity)).filter_by(
+                    stock_owned=symbol).scalar() or 0
+
+                available_shares = admin_stock.total_volume - total_owned
+
+                if quantity > available_shares:
+                    flash(f'Not enough shares available. Only {available_shares} shares of {symbol} available.', 'error')
+                    return redirect(url_for('portfolio'))
+
+            # Proceed with purchase
+            current_user.money -= total_cost
+
+            # Check if user already owns this stock
+            existing_stock = StocksOwned.query.filter_by(id=current_user.id, stock_owned=symbol).first()
+
+            if existing_stock:
+                # Calculate new average purchase price
+                total_shares = existing_stock.quantity + quantity
+                total_cost_basis = (existing_stock.quantity * existing_stock.price_purchased) + (quantity * price)
+                new_avg_price = total_cost_basis / total_shares
+
+                # Update existing record
+                existing_stock.quantity = total_shares
+                existing_stock.price_purchased = new_avg_price
             else:
-                # Deduct funds from the user
-                current_user.money -= total_cost
-
-                # Check if user already owns this stock
-                existing_stock = StocksOwned.query.filter_by(id=current_user.id, stock_owned=symbol).first()
-
-                if existing_stock:
-                    # Calculate new average purchase price
-                    total_shares = existing_stock.quantity + quantity
-                    total_cost_basis = (existing_stock.quantity * existing_stock.price_purchased) + (quantity * price)
-                    new_avg_price = total_cost_basis / total_shares
-
-                    # Update existing record
-                    existing_stock.quantity = total_shares
-                    existing_stock.price_purchased = new_avg_price
-                else:
-                    # Create a new entry
-                    new_stock = StocksOwned(
-                        id=current_user.id,
-                        stock_owned=symbol,
-                        name=stock_name,
-                        quantity=quantity,
-                        price_purchased=price
-                    )
-                    db.session.add(new_stock)
-
-                # Record transaction
-                transaction = Transactions(
-                    user_id=current_user.id,
-                    transaction_type='buy',
-                    symbol=symbol,
+                # Create a new entry
+                new_stock = StocksOwned(
+                    id=current_user.id,
+                    stock_owned=symbol,
+                    name=stock_name,
                     quantity=quantity,
-                    price=price,
-                    amount=total_cost,
-                    status='completed'
+                    price_purchased=price
                 )
+                db.session.add(new_stock)
 
-                db.session.add(transaction)
-                db.session.commit()
-                flash('Purchase successful!', 'success')
+            # Record transaction
+            transaction = Transactions(
+                user_id=current_user.id,
+                transaction_type='buy',
+                symbol=symbol,
+                quantity=quantity,
+                price=price,
+                amount=total_cost,
+                status='completed'
+            )
+
+            db.session.add(transaction)
+            db.session.commit()
+            flash('Purchase successful!', 'success')
 
         elif action == 'sell':
             # Check if the user owns the stock and has enough quantity
@@ -358,8 +433,10 @@ def purchase_stock():
 
             if not stock_owned:
                 flash('You do not own this stock', 'error')
+                return redirect(url_for('portfolio'))
             elif stock_owned.quantity < quantity:
                 flash('You do not have enough shares to sell', 'error')
+                return redirect(url_for('portfolio'))
             else:
                 # Calculate total value of the sale
                 total_value = quantity * price
@@ -395,9 +472,76 @@ def purchase_stock():
 @app.route('/admin')
 @login_required
 @admin_required
-
 def admin():
-    return render_template('admin.html')
+    # Get all stocks and users to display in admin dashboard
+    stocks = AvailableStock.query.all()
+    users = Users.query.all()
+    return render_template('admin.html', stocks=stocks, users=users)
+
+@app.route('/add-stock', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def add_stock():
+    if request.method == 'POST':
+        # Get form data
+        company_name = request.form.get('company_name')
+        ticker = request.form.get('ticker').upper()  # Convert to uppercase
+        volume = int(request.form.get('volume'))
+        initial_price = float(request.form.get('initial_price'))
+
+        # Validate data
+        if not company_name or not ticker or volume <= 0 or initial_price <= 0:
+            flash('All fields are required and must be valid', 'danger')
+            return redirect(url_for('add_stock'))
+
+        # Check if stock with this ticker already exists
+        existing_stock = AvailableStock.query.filter_by(ticker=ticker).first()
+        if existing_stock:
+            flash(f'Stock with ticker {ticker} already exists', 'danger')
+            return redirect(url_for('add_stock'))
+
+        # Create new stock
+        new_stock = AvailableStock(
+            company_name=company_name,
+            ticker=ticker,
+            total_volume=volume,
+            initial_price=initial_price,
+            is_active=True
+        )
+
+        try:
+            db.session.add(new_stock)
+            db.session.commit()
+            flash(f'Stock {ticker} ({company_name}) has been added successfully', 'success')
+            return redirect(url_for('admin'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error adding stock: {str(e)}', 'danger')
+            return redirect(url_for('add_stock'))
+
+    popular_stocks = []
+    # List of common stock symbols
+    stock_symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'JPM', 'V', 'WMT', 'PG', 'JNJ', 'NVDA']
+
+    try:
+        for symbol in stock_symbols:
+            try:
+                ticker = yf.Ticker(symbol)
+                info = ticker.info
+                if info:
+                    popular_stocks.append({
+                        'symbol': symbol,
+                        'name': info.get('longName', 'Unknown'),
+                        'price': info.get('currentPrice', info.get('regularMarketPrice', 0))
+                    })
+            except Exception:
+                # Skip stocks that can't be fetched
+                continue
+    except Exception as e:
+        flash(f'Error fetching stock data: {str(e)}', 'warning')
+
+    # GET request - render the form with popular stocks
+    return render_template('add_stock.html', popular_stocks=popular_stocks)
 
 @app.route('/register', methods=["GET", "POST"])
 def register():

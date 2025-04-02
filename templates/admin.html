@@ -6,39 +6,146 @@
 <div class="container mt-4">
     <h1 class="mb-4">Admin Dashboard</h1>
 
-    <div class="row">
+    <div class="row mb-4">
         <div class="col-md-4">
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h5>Users Management</h5>
-                </div>
-                <div class="card-body">
-                    <a href="#" class="btn btn-primary">Manage Users</a>
-                </div>
+             <div class="card card-dark-bg mb-3">
+                 <div class="card-body text-center text-white">
+                     <h5 class="card-title"><i class="fas fa-plus-circle me-2"></i>Add New Stock</h5>
+                     <p class="card-text">Define a new stock available for trading.</p>
+                     <a href="{{ url_for('add_stock') }}" class="btn btn-primary">Add Stock</a>
+                 </div>
+             </div>
+        </div>
+         <div class="col-md-4">
+             <div class="card card-dark-bg mb-3">
+                 <div class="card-body text-center text-white">
+                     <h5 class="card-title"><i class="fas fa-users me-2"></i>Manage Users</h5>
+                     <p class="card-text">View and manage user accounts.</p>
+                     <a href="#users-section" class="btn btn-secondary">View Users</a>
+                 </div>
+             </div>
+        </div>
+         <div class="col-md-4">
+             <div class="card card-dark-bg mb-3">
+                 <div class="card-body text-center text-white">
+                     <h5 class="card-title"><i class="fas fa-chart-line me-2"></i>Manage Stocks</h5>
+                     <p class="card-text">View and manage existing stocks.</p>
+                     <a href="#stocks-section" class="btn btn-secondary">View Stocks</a>
+                 </div>
+             </div>
+        </div>
+    </div>
+
+
+    <div class="card card-dark-bg mb-4" id="stocks-section">
+        <div class="card-header">
+            <h5>Available Stocks</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Company Name</th>
+                            <th>Initial Price</th>
+                            <th>Total Volume</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if stocks %}
+                            {% for stock in stocks %}
+                            <tr>
+                                <td>{{ stock.ticker }}</td>
+                                <td>{{ stock.company_name }}</td>
+                                <td>{{ stock.initial_price|currency }}</td>
+                                <td>{{ "{:,}".format(stock.total_volume) }}</td>
+                                <td>
+                                    {% if stock.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {# Add buttons for Edit/Deactivate later #}
+                                    <button class="btn btn-sm btn-outline-light disabled" title="Edit (Not Implemented)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger disabled" title="Deactivate (Not Implemented)">
+                                        <i class="fas fa-toggle-off"></i> {# Or fa-toggle-on #}
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center">No stocks added yet.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
+         <div class="card-footer">
+             <a href="{{ url_for('add_stock') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus me-1"></i> Add New Stock</a>
+         </div>
+    </div>
 
-        <div class="col-md-4">
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h5>Content Management</h5>
-                </div>
-                <div class="card-body">
-                    <a href="#" class="btn btn-primary">Manage Content</a>
-                </div>
-            </div>
+
+    <div class="card card-dark-bg" id="users-section">
+        <div class="card-header">
+            <h5>Users Management</h5>
         </div>
-
-        <div class="col-md-4">
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h5>Settings</h5>
-                </div>
-                <div class="card-body">
-                    <a href="#" class="btn btn-primary">System Settings</a>
-                </div>
+        <div class="card-body p-0">
+             <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Cash Balance</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                         {% if users %}
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>
+                                    {% if user.role == 'admin' %}
+                                        <span class="badge bg-primary">{{ user.role|capitalize }}</span>
+                                    {% else %}
+                                         <span class="badge bg-secondary">{{ user.role|capitalize }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ user.money|currency }}</td>
+                                <td>
+                                    {# Add buttons for Edit/Delete user later #}
+                                    <button class="btn btn-sm btn-outline-light disabled" title="Edit User (Not Implemented)">
+                                        <i class="fas fa-user-edit"></i>
+                                    </button>
+                                     <button class="btn btn-sm btn-outline-danger disabled" title="Delete User (Not Implemented)">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                             <tr>
+                                <td colspan="5" class="text-center">No users found.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
+
 </div>
 {% endblock %}

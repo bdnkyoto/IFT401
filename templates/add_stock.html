@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Add New Stock{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Add New Stock</h4>
+                </div>
+                <div class="card-body">
+
+
+                    <!-- Stock selection dropdown -->
+                    <div class="mb-4">
+                        <label for="stock_picker" class="form-label">Select from Popular Stocks</label>
+                        <select class="form-select" id="stock_picker" onchange="populateStockInfo()">
+                            <option value="" selected>-- Select a stock or enter details manually --</option>
+                            {% for stock in popular_stocks %}
+                                <option value="{{ stock.symbol }}"
+                                        data-name="{{ stock.name }}"
+                                        data-price="{{ stock.price }}">
+                                    {{ stock.symbol }} - {{ stock.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-white">Select a stock from the dropdown or enter details manually below</div>
+                    </div>
+
+                    <hr>
+
+                    <form method="POST" action="{{ url_for('add_stock') }}" id="stockForm">
+                        <div class="mb-3">
+                            <label for="company_name" class="form-label">Company Name</label>
+                            <input type="text" class="form-control" id="company_name" name="company_name" required>
+                            <div class="form-text text-white">Enter the full name of the company</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="ticker" class="form-label">Stock Ticker</label>
+                            <input type="text" class="form-control" id="ticker" name="ticker" required maxlength="10">
+                            <div class="form-text text-white">Enter the stock ticker symbol (e.g., AAPL for Apple)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="volume" class="form-label">Total Volume</label>
+                            <input type="number" class="form-control" id="volume" name="volume" required min="1" step="1">
+                            <div class="form-text text-white">Enter the total number of shares available</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="initial_price" class="form-label">Initial Price</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="initial_price" name="initial_price" required min="0.01" step="0.01">
+                            </div>
+                            <div class="form-text text-white">Enter the starting price per share</div>
+                        </div>
+
+                        <div class="d-flex justify-content-between text-white">
+                            <a href="{{ url_for('admin') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Add Stock</button>
+                        </div>
+                    </form>
+
+                    <script>
+                        function populateStockInfo() {
+                            const selector = document.getElementById('stock_picker');
+                            const selectedOption = selector.options[selector.selectedIndex];
+
+                            if (selectedOption.value) {
+                                // An item was selected from the dropdown
+                                document.getElementById('company_name').value = selectedOption.dataset.name;
+                                document.getElementById('ticker').value = selectedOption.value;
+                                document.getElementById('initial_price').value = parseFloat(selectedOption.dataset.price).toFixed(2);
+
+                                // Make sure volume is still required to be set by admin
+                                document.getElementById('volume').focus();
+                            } else {
+                                // Reset form for manual entry
+                                document.getElementById('company_name').value = '';
+                                document.getElementById('ticker').value = '';
+                                document.getElementById('initial_price').value = '';
+                            }
+                        }
+
+                        // Set a default volume value when the page loads
+                        document.addEventListener('DOMContentLoaded', function() {
+                            document.getElementById('volume').value = 10000;
+                        });
+                    </script>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

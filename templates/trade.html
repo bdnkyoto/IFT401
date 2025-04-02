@@ -46,9 +46,49 @@
                 </div>
                 <button type="submit" class="btn btn-primary" id="previewButton">Preview</button>
             </form>
-
-
-
-
+        </div>
+    </div>
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Available Stocks</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Company</th>
+                                    <th>Initial Price</th>
+                                    <th>Available Volume</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stock in available_stocks %}
+                                <tr>
+                                    <td>{{ stock.ticker }}</td>
+                                    <td>{{ stock.company_name }}</td>
+                                    <td>{{ stock.initial_price|currency }}</td>
+                                    <td>{{ "{:,}".format(stock.available_volume) }}</td>
+                                    <td>
+                                        <a href="{{ url_for('stock_preview', symbol=stock.ticker) }}" class="btn btn-sm btn-primary">Trade</a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center">No stocks available for trading.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

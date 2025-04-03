@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Set Market Hours{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Set Market Hours</h1>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Market Hours Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form id="marketHoursForm" method="POST" action="{{ url_for('set_market_hours') }}">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="startTime" class="form-label text-white">Market Open Time</label>
+                                <input type="time" class="form-control" 
+                                       id="startTime" name="start_time" 
+                                       value="{{ market_hours.start_time if market_hours else '09:30' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="endTime" class="form-label text-white">Market Close Time</label>
+                                <input type="time" class="form-control" 
+                                       id="endTime" name="end_time" 
+                                       value="{{ market_hours.end_time if market_hours else '16:00' }}" required>
+                            </div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary" onclick="confirmMarketHours()">
+                                <i class="fas fa-save me-2"></i>Set Market Hours
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header bg-primary">
+                <h5 class="modal-title">Confirm Market Hours</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmationMessage">Are you sure you want to set the market hours from <span id="displayStartTime" class="fw-bold"></span> to <span id="displayEndTime" class="fw-bold"></span>?</p>
+            </div>
+            <div class="modal-footer bg-dark">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitMarketHoursForm()">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmMarketHours() {
+    const startTime = document.getElementById('startTime').value;
+    const endTime = document.getElementById('endTime').value;
+    
+    // Format time for display (convert 24h to 12h format)
+    const formattedStartTime = formatTimeForDisplay(startTime);
+    const formattedEndTime = formatTimeForDisplay(endTime);
+    
+    document.getElementById('displayStartTime').textContent = formattedStartTime;
+    document.getElementById('displayEndTime').textContent = formattedEndTime;
+    
+    // Show the confirmation modal
+    const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+    modal.show();
+}
+
+function submitMarketHoursForm() {
+    document.getElementById('marketHoursForm').submit();
+    const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
+    modal.hide();
+}
+
+function formatTimeForDisplay(timeString) {
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+}
+</script>
+{% endblock %}

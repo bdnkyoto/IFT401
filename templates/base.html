@@ -14,6 +14,24 @@
     <title>{% block title %}{% endblock %} - Trading Platform</title>
 </head>
 <body>
+
+ <!-- Market Hours Display -->
+ <div class="market-hours-bar bg-dark text-light py-1">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="market-hours">
+                <i class="fas fa-clock me-2"></i>
+                <span id="marketHoursDisplay">
+                    Market Hours: {% if market_hours %}{{ market_hours.start_time|default('9:30 AM') }} to {{ market_hours.end_time|default('4:00 PM') }} (EST){% else %}9:30 AM to 4:00 PM (EST){% endif %}
+                </span>
+            </div>
+            <div class="market-status">
+                <span id="marketStatus" class="badge"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
     <!-- Market Ticker -->
     <div class="market-data d-none d-md-block">
         <div class="container">

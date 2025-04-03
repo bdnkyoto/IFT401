@@ -5,7 +5,7 @@ from flask_bootstrap import Bootstrap5
 from flask_bcrypt import Bcrypt
 from functools import wraps
 import yfinance as yf
-import datetime
+import datetime, time
 import random
 
 
@@ -71,6 +71,12 @@ class AvailableStock(db.Model):
 
     def __repr__(self):
         return f'<AvailableStock {self.ticker}>'
+
+class MarketHours(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    start_time = db.Column(db.String(8), nullable=False, default='09:30') 
+    end_time = db.Column(db.String(8), nullable=False, default='16:00')
+
 
 with app.app_context():
     db.create_all()
@@ -354,6 +360,18 @@ def purchase_stock():
     price = float(request.form.get('price'))
     order_type = request.form.get('order_type', 'market')  # 'market' or 'limit'
 
+    # Get market hours
+    market_hours = MarketHours.query.first()
+    if not market_hours:
+        flash('Market hours not configured', 'error')
+        return redirect(url_for('portfolio'))
+
+    # Check if market is open
+    now = datetime.datetime.now().time()
+    market_open = datetime.datetime.strptime(market_hours.start_time, '%H:%M').time()
+    market_close = datetime.datetime.strptime(market_hours.end_time, '%H:%M').time()
+    is_market_open = market_open <= now <= market_close
+
     # Check if this stock is managed by admin
     admin_stock = AvailableStock.query.filter_by(ticker=symbol, is_active=True).first()
 
@@ -365,7 +383,6 @@ def purchase_stock():
         stock_name = stock.info.get('longName', 'N/A')
 
     if order_type == 'market':
-        # Execute order immediately (market order)
         if action == 'buy':
             total_cost = quantity * price
 
@@ -376,56 +393,68 @@ def purchase_stock():
 
             # If this is an admin-managed stock, check volume availability
             if admin_stock:
-                # Calculate currently available shares
                 total_owned = db.session.query(db.func.sum(StocksOwned.quantity)).filter_by(
                     stock_owned=symbol).scalar() or 0
-
                 available_shares = admin_stock.total_volume - total_owned
 
                 if quantity > available_shares:
                     flash(f'Not enough shares available. Only {available_shares} shares of {symbol} available.', 'error')
                     return redirect(url_for('portfolio'))
 
-            # Proceed with purchase
-            current_user.money -= total_cost
+            if is_market_open:
+                # Market is open - process immediately
+                current_user.money -= total_cost
 
-            # Check if user already owns this stock
-            existing_stock = StocksOwned.query.filter_by(id=current_user.id, stock_owned=symbol).first()
+                # Check if user already owns this stock
+                existing_stock = StocksOwned.query.filter_by(id=current_user.id, stock_owned=symbol).first()
 
-            if existing_stock:
-                # Calculate new average purchase price
-                total_shares = existing_stock.quantity + quantity
-                total_cost_basis = (existing_stock.quantity * existing_stock.price_purchased) + (quantity * price)
-                new_avg_price = total_cost_basis / total_shares
+                if existing_stock:
+                    # Calculate new average purchase price
+                    total_shares = existing_stock.quantity + quantity
+                    total_cost_basis = (existing_stock.quantity * existing_stock.price_purchased) + (quantity * price)
+                    new_avg_price = total_cost_basis / total_shares
 
-                # Update existing record
-                existing_stock.quantity = total_shares
-                existing_stock.price_purchased = new_avg_price
-            else:
-                # Create a new entry
-                new_stock = StocksOwned(
-                    id=current_user.id,
-                    stock_owned=symbol,
-                    name=stock_name,
+                    # Update existing record
+                    existing_stock.quantity = total_shares
+                    existing_stock.price_purchased = new_avg_price
+                else:
+                    # Create a new entry
+                    new_stock = StocksOwned(
+                        id=current_user.id,
+                        stock_owned=symbol,
+                        name=stock_name,
+                        quantity=quantity,
+                        price_purchased=price
+                    )
+                    db.session.add(new_stock)
+
+                # Record transaction
+                transaction = Transactions(
+                    user_id=current_user.id,
+                    transaction_type='buy',
+                    symbol=symbol,
                     quantity=quantity,
-                    price_purchased=price
+                    price=price,
+                    amount=total_cost,
+                    status='completed'
                 )
-                db.session.add(new_stock)
-
-            # Record transaction
-            transaction = Transactions(
-                user_id=current_user.id,
-                transaction_type='buy',
-                symbol=symbol,
-                quantity=quantity,
-                price=price,
-                amount=total_cost,
-                status='completed'
-            )
-
-            db.session.add(transaction)
-            db.session.commit()
-            flash('Purchase successful!', 'success')
+                db.session.add(transaction)
+                db.session.commit()
+                flash('Purchase successful!', 'success')
+            else:
+                # Market is closed - create pending transaction
+                transaction = Transactions(
+                    user_id=current_user.id,
+                    transaction_type='buy',
+                    symbol=symbol,
+                    quantity=quantity,
+                    price=price,
+                    amount=total_cost,
+                    status='pending'
+                )
+                db.session.add(transaction)
+                db.session.commit()
+                flash('Order placed (pending market open)', 'info')
 
         elif action == 'sell':
             # Check if the user owns the stock and has enough quantity
@@ -438,34 +467,45 @@ def purchase_stock():
                 flash('You do not have enough shares to sell', 'error')
                 return redirect(url_for('portfolio'))
             else:
-                # Calculate total value of the sale
                 total_value = quantity * price
 
-                # Add funds to user's cash account
-                current_user.money += total_value
+                if is_market_open:
+                    # Market is open - process immediately
+                    current_user.money += total_value
 
-                # Update or remove the stock from StocksOwned
-                if stock_owned.quantity == quantity:
-                    # Remove the stock if the user sells all shares
-                    db.session.delete(stock_owned)
+                    # Update or remove the stock from StocksOwned
+                    if stock_owned.quantity == quantity:
+                        db.session.delete(stock_owned)
+                    else:
+                        stock_owned.quantity -= quantity
+
+                    # Record transaction
+                    transaction = Transactions(
+                        user_id=current_user.id,
+                        transaction_type='sell',
+                        symbol=symbol,
+                        quantity=quantity,
+                        price=price,
+                        amount=total_value,
+                        status='completed'
+                    )
+                    db.session.add(transaction)
+                    db.session.commit()
+                    flash('Sale successful!', 'success')
                 else:
-                    # Reduce the quantity if the user sells some shares
-                    stock_owned.quantity -= quantity
-
-                # Record transaction
-                transaction = Transactions(
-                    user_id=current_user.id,
-                    transaction_type='sell',
-                    symbol=symbol,
-                    quantity=quantity,
-                    price=price,
-                    amount=total_value,
-                    status='completed'
-                )
-
-                db.session.add(transaction)
-                db.session.commit()
-                flash('Sale successful!', 'success')
+                    # Market is closed - create pending transaction
+                    transaction = Transactions(
+                        user_id=current_user.id,
+                        transaction_type='sell',
+                        symbol=symbol,
+                        quantity=quantity,
+                        price=price,
+                        amount=total_value,
+                        status='pending'
+                    )
+                    db.session.add(transaction)
+                    db.session.commit()
+                    flash('Order placed (pending market open)', 'info')
 
     return redirect(url_for('portfolio'))
 
@@ -473,10 +513,38 @@ def purchase_stock():
 @login_required
 @admin_required
 def admin():
-    # Get all stocks and users to display in admin dashboard
     stocks = AvailableStock.query.all()
     users = Users.query.all()
-    return render_template('admin.html', stocks=stocks, users=users)
+    market_hours = MarketHours.query.first()
+    return render_template('admin.html', stocks=stocks, users=users, market_hours=market_hours)
+
+@app.context_processor
+def inject_market_hours():
+    market_hours = MarketHours.query.first()
+    return dict(market_hours=market_hours)
+
+@app.route('/market_hours', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def set_market_hours():
+    market_hours = MarketHours.query.first()
+    
+    if request.method == 'POST':
+        start_time = request.form.get('start_time')
+        end_time = request.form.get('end_time')
+        
+        if not market_hours:
+            market_hours = MarketHours(start_time=start_time, end_time=end_time)
+            db.session.add(market_hours)
+        else:
+            market_hours.start_time = start_time
+            market_hours.end_time = end_time
+        
+        db.session.commit()
+        flash('Market hours updated successfully!', 'success')
+        return redirect(url_for('admin')) 
+    
+    return render_template('market_hours.html', market_hours=market_hours)
 
 @app.route('/add-stock', methods=['GET', 'POST'])
 @login_required
@@ -568,6 +636,26 @@ def register():
         return redirect(url_for("login"))
     return render_template("sign_up.html")
 
+def is_market_open():
+    """Check if current time is within configured market hours"""
+    market_hours = MarketHours.query.first()
+    if not market_hours:
+        return False 
+    
+    now = datetime.datetime.now().time()
+    try:
+        market_open = datetime.datetime.strptime(market_hours.start_time, '%H:%M').time()
+        market_close = datetime.datetime.strptime(market_hours.end_time, '%H:%M').time()
+        
+        # Handle overnight markets (if close time is earlier than open time)
+        if market_close < market_open:
+            return now >= market_open or now <= market_close
+        return market_open <= now <= market_close
+    except ValueError:
+        return False
+    
+
+
 
 @app.route('/login', methods=["GET", "POST"])
 def login():
@@ -575,7 +663,67 @@ def login():
         user = Users.query.filter_by(username=request.form.get("username")).first()
         if user and bcrypt.check_password_hash(user.password, request.form.get("password")):
             login_user(user)
+            
+            # Process pending transactions if market is open
+            if is_market_open():  # Using the function we created earlier
+                pending_transactions = Transactions.query.filter_by(
+                    user_id=user.id,
+                    status='pending'
+                ).all()
+                
+                for transaction in pending_transactions:
+                    if transaction.transaction_type == 'buy':
+                        # Process buy transaction
+                        if user.money >= transaction.amount:
+                            user.money -= transaction.amount
+                            
+                            # Update or create stock ownership
+                            stock_owned = StocksOwned.query.filter_by(
+                                id=user.id,
+                                stock_owned=transaction.symbol
+                            ).first()
+                            
+                            if stock_owned:
+                                # Calculate new average price
+                                total_shares = stock_owned.quantity + transaction.quantity
+                                total_cost = (stock_owned.price_purchased * stock_owned.quantity) + transaction.amount
+                                new_avg_price = total_cost / total_shares
+                                
+                                stock_owned.quantity = total_shares
+                                stock_owned.price_purchased = new_avg_price
+                            else:
+                                new_stock = StocksOwned(
+                                    id=user.id,
+                                    stock_owned=transaction.symbol,
+                                    name=transaction.symbol,  # You might want to store the name in Transactions
+                                    quantity=transaction.quantity,
+                                    price_purchased=transaction.price
+                                )
+                                db.session.add(new_stock)
+                            
+                            transaction.status = 'completed'
+                    
+                    elif transaction.transaction_type == 'sell':
+                        # Process sell transaction
+                        stock_owned = StocksOwned.query.filter_by(
+                            id=user.id,
+                            stock_owned=transaction.symbol
+                        ).first()
+                        
+                        if stock_owned and stock_owned.quantity >= transaction.quantity:
+                            user.money += transaction.amount
+                            
+                            if stock_owned.quantity == transaction.quantity:
+                                db.session.delete(stock_owned)
+                            else:
+                                stock_owned.quantity -= transaction.quantity
+                            
+                            transaction.status = 'completed'
+                
+                db.session.commit()
+            
             return redirect(url_for("portfolio"))
+    
     return render_template("login.html")
 
 @app.route('/logout')

@@ -7,34 +7,49 @@
     <h1 class="mb-4">Admin Dashboard</h1>
 
     <div class="row mb-4">
-        <div class="col-md-4">
-             <div class="card card-dark-bg mb-3">
-                 <div class="card-body text-center text-white">
-                     <h5 class="card-title"><i class="fas fa-plus-circle me-2"></i>Add New Stock</h5>
-                     <p class="card-text">Define a new stock available for trading.</p>
-                     <a href="{{ url_for('add_stock') }}" class="btn btn-primary">Add Stock</a>
-                 </div>
-             </div>
+        <div class="col-md-6">
+            <div class="card card-dark-bg mb-3">
+                <div class="card-body text-center text-white">
+                    <h5 class="card-title"><i class="fas fa-plus-circle me-2"></i>Add New Stock</h5>
+                    <p class="card-text">Define a new stock available for trading.</p>
+                    <a href="{{ url_for('add_stock') }}" class="btn btn-primary">Add Stock</a>
+                </div>
+            </div>
         </div>
-         <div class="col-md-4">
-             <div class="card card-dark-bg mb-3">
-                 <div class="card-body text-center text-white">
-                     <h5 class="card-title"><i class="fas fa-users me-2"></i>Manage Users</h5>
-                     <p class="card-text">View and manage user accounts.</p>
-                     <a href="#users-section" class="btn btn-secondary">View Users</a>
-                 </div>
-             </div>
-        </div>
-         <div class="col-md-4">
-             <div class="card card-dark-bg mb-3">
-                 <div class="card-body text-center text-white">
-                     <h5 class="card-title"><i class="fas fa-chart-line me-2"></i>Manage Stocks</h5>
-                     <p class="card-text">View and manage existing stocks.</p>
-                     <a href="#stocks-section" class="btn btn-secondary">View Stocks</a>
-                 </div>
-             </div>
+        <div class="col-md-6">
+            <div class="card card-dark-bg mb-3">
+                <div class="card-body text-center text-white">
+                    <h5 class="card-title"><i class="fas fa-users me-2"></i>Manage Users</h5>
+                    <p class="card-text">View and manage user accounts.</p>
+                    <a href="#users-section" class="btn btn-secondary">View Users</a>
+                </div>
+            </div>
         </div>
     </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card card-dark-bg mb-3">
+                <div class="card-body text-center text-white">
+                    <h5 class="card-title"><i class="fas fa-chart-line me-2"></i>Manage Stocks</h5>
+                    <p class="card-text">View and manage existing stocks.</p>
+                    <a href="#stocks-section" class="btn btn-secondary">View Stocks</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card card-dark-bg mb-3">
+                <div class="card-body text-center text-white">
+                    <h5 class="card-title"><i class="fas fa-clock me-2"></i>Market Hours</h5>
+                    <p class="card-text">Set trading market hours.</p>
+                    <a href="{{ url_for('set_market_hours') }}" class="btn btn-primary">Manage Hours</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+        
+    
 
 
     <div class="card card-dark-bg mb-4" id="stocks-section">

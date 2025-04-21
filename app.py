@@ -18,6 +18,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+app.secret_key = 'key'
+
 db = SQLAlchemy(app)
 
 bootstrap = Bootstrap5(app)

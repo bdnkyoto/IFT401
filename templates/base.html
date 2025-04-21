@@ -15,6 +15,17 @@
 </head>
 <body>
 
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in msgs %}
+        {% if category == 'pending' %}
+          <script>
+            // simple popup
+            alert("{{ msg|escapejs }}");
+          </script>
+        {% endif %}
+      {% endfor %}
+    {% endwith %}
+
  <!-- Market Hours Display -->
  <div class="market-hours-bar bg-dark text-light py-1">
     <div class="container">
@@ -26,7 +37,14 @@
                 </span>
             </div>
             <div class="market-status">
-                <span id="marketStatus" class="badge"></span>
+                <span id="marketStatus" class="badge {% if is_market_open %}bg-success{% else %}bg-danger{% endif %}">
+                    {{ market_status }}
+                </span>
+                {% if today_holiday %}
+                    <span class="ms-2 badge bg-info">
+                        <i class="fas fa-calendar me-1"></i> {{ today_holiday.holiday_name }}
+                    </span>
+                {% endif %}
             </div>
         </div>
     </div>

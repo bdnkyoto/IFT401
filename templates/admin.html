@@ -47,10 +47,18 @@
             </div>
         </div>
     </div>
-</div>
-        
-    
 
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card card-dark-bg mb-3">
+                <div class="card-body text-center text-white">
+                    <h5 class="card-title"><i class="fas fa-calendar-alt me-2"></i>Market Holidays</h5>
+                    <p class="card-text">Set days when the market is closed.</p>
+                    <a href="{{ url_for('manage_holidays') }}" class="btn btn-primary">Manage Holidays</a>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="card card-dark-bg mb-4" id="stocks-section">
         <div class="card-header">
@@ -85,13 +93,15 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {# Add buttons for Edit/Deactivate later #}
-                                    <button class="btn btn-sm btn-outline-light disabled" title="Edit (Not Implemented)">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger disabled" title="Deactivate (Not Implemented)">
-                                        <i class="fas fa-toggle-off"></i> {# Or fa-toggle-on #}
-                                    </button>
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('edit_stock', ticker=stock.ticker) }}" class="btn btn-sm btn-outline-light" title="Edit Stock">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{{ url_for('toggle_stock', ticker=stock.ticker) }}" class="btn btn-sm {% if stock.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                                           title="{% if stock.is_active %}Deactivate{% else %}Activate{% endif %} Stock">
+                                            <i class="fas {% if stock.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}

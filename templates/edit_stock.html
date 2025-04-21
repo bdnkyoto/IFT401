@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Stock - {{ stock.ticker }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Edit Stock - {{ stock.ticker }}</h4>
+                </div>
+                <div class="card-body">
+
+                    <form method="POST" action="{{ url_for('edit_stock', ticker=stock.ticker) }}">
+                        <div class="mb-3">
+                            <label for="ticker" class="form-label">Stock Ticker</label>
+                            <input type="text" class="form-control" id="ticker" value="{{ stock.ticker }}" disabled>
+                            <div class="form-text">Stock ticker cannot be changed</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="company_name" class="form-label">Company Name</label>
+                            <input type="text" class="form-control" id="company_name" name="company_name"
+                                   value="{{ stock.company_name }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="volume" class="form-label">Total Volume</label>
+                            <input type="number" class="form-control" id="volume" name="volume"
+                                   value="{{ stock.total_volume }}" required min="1" step="1">
+                            <div class="form-text">
+                                Note: Cannot be set lower than current owned shares
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="initial_price" class="form-label">Initial Price</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="initial_price" name="initial_price"
+                                       value="{{ stock.initial_price }}" required min="0.01" step="0.01">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <div>
+                                {% if stock.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                                <a href="{{ url_for('toggle_stock', ticker=stock.ticker) }}" class="btn btn-sm
+                                   {% if stock.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                                    {% if stock.is_active %}Deactivate{% else %}Activate{% endif %} Stock
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin') }}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Update Stock</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

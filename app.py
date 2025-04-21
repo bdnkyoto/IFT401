@@ -9,6 +9,7 @@ import datetime, time
 import random
 
 
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost/Stock_Trading_Users'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -74,8 +75,17 @@ class AvailableStock(db.Model):
 
 class MarketHours(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    start_time = db.Column(db.String(8), nullable=False, default='09:30') 
+    start_time = db.Column(db.String(8), nullable=False, default='09:30')
     end_time = db.Column(db.String(8), nullable=False, default='16:00')
+
+class MarketHoliday(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    holiday_name = db.Column(db.String(100), nullable=False)
+    holiday_date = db.Column(db.Date, nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    def __repr__(self):
+        return f'<MarketHoliday {self.holiday_name} ({self.holiday_date})>'
 
 
 with app.app_context():
@@ -152,39 +162,6 @@ def portfolio():
 def transaction_history():
     transactions = Transactions.query.filter_by(user_id=current_user.id).order_by(Transactions.timestamp.desc()).all()
     return render_template('transaction_history.html', transactions=transactions)
-
-@app.route('/pending-orders')
-@login_required
-def pending_orders():
-    orders = PendingOrders.query.filter_by(user_id=current_user.id).order_by(PendingOrders.timestamp.desc()).all()
-    return render_template('pending_orders.html', orders=orders)
-
-@app.route('/cancel-order/<int:order_id>')
-@login_required
-def cancel_order(order_id):
-    order = PendingOrders.query.get_or_404(order_id)
-
-    if order.user_id != current_user.id:
-        flash('Unauthorized action', 'danger')
-        return redirect(url_for('pending_orders'))
-
-    # Create a transaction record for the cancelled order
-    transaction = Transactions(
-        user_id=current_user.id,
-        transaction_type=f"{order.order_type}_cancelled",
-        symbol=order.symbol,
-        quantity=order.quantity,
-        price=order.price,
-        amount=order.quantity * order.price,
-        status="cancelled"
-    )
-
-    db.session.add(transaction)
-    db.session.delete(order)
-    db.session.commit()
-
-    flash(f'Order for {order.quantity} shares of {order.symbol} has been cancelled', 'success')
-    return redirect(url_for('pending_orders'))
 
 @app.route('/trade')
 @login_required
@@ -366,11 +343,22 @@ def purchase_stock():
         flash('Market hours not configured', 'error')
         return redirect(url_for('portfolio'))
 
+    # Check if today is a holiday
+    today = datetime.date.today()
+    holiday = MarketHoliday.query.filter_by(holiday_date=today).first()
+
     # Check if market is open
     now = datetime.datetime.now().time()
     market_open = datetime.datetime.strptime(market_hours.start_time, '%H:%M').time()
     market_close = datetime.datetime.strptime(market_hours.end_time, '%H:%M').time()
-    is_market_open = market_open <= now <= market_close
+
+    is_market_open = False
+    if not holiday:  # Only check time if it's not a holiday
+        # Handle overnight markets
+        if market_close < market_open:  # Overnight market
+            is_market_open = now >= market_open or now <= market_close
+        else:
+            is_market_open = market_open <= now <= market_close
 
     # Check if this stock is managed by admin
     admin_stock = AvailableStock.query.filter_by(ticker=symbol, is_active=True).first()
@@ -454,7 +442,6 @@ def purchase_stock():
                 )
                 db.session.add(transaction)
                 db.session.commit()
-                flash('Order placed (pending market open)', 'info')
 
         elif action == 'sell':
             # Check if the user owns the stock and has enough quantity
@@ -505,7 +492,6 @@ def purchase_stock():
                     )
                     db.session.add(transaction)
                     db.session.commit()
-                    flash('Order placed (pending market open)', 'info')
 
     return redirect(url_for('portfolio'))
 
@@ -523,27 +509,60 @@ def inject_market_hours():
     market_hours = MarketHours.query.first()
     return dict(market_hours=market_hours)
 
+@app.context_processor
+def inject_market_status():
+    market_hours = MarketHours.query.first()
+
+    # Check if today is a holiday
+    today = datetime.date.today()
+    holiday = MarketHoliday.query.filter_by(holiday_date=today).first()
+
+    is_market_open = False
+    market_status = "Closed"
+
+    if holiday:
+        market_status = f"Closed for {holiday.holiday_name}"
+    elif market_hours:
+        now = datetime.datetime.now().time()
+        market_open = datetime.datetime.strptime(market_hours.start_time, '%H:%M').time()
+        market_close = datetime.datetime.strptime(market_hours.end_time, '%H:%M').time()
+
+        # Check if market is open
+        if market_close < market_open:  # Overnight market
+            is_market_open = now >= market_open or now <= market_close
+        else:
+            is_market_open = market_open <= now <= market_close
+
+        market_status = "Open" if is_market_open else "Closed"
+
+    return dict(
+        market_hours=market_hours,
+        is_market_open=is_market_open,
+        market_status=market_status,
+        today_holiday=holiday
+    )
+
 @app.route('/market_hours', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def set_market_hours():
     market_hours = MarketHours.query.first()
-    
+
     if request.method == 'POST':
         start_time = request.form.get('start_time')
         end_time = request.form.get('end_time')
-        
+
         if not market_hours:
             market_hours = MarketHours(start_time=start_time, end_time=end_time)
             db.session.add(market_hours)
         else:
             market_hours.start_time = start_time
             market_hours.end_time = end_time
-        
+
         db.session.commit()
         flash('Market hours updated successfully!', 'success')
-        return redirect(url_for('admin')) 
-    
+        return redirect(url_for('admin'))
+
     return render_template('market_hours.html', market_hours=market_hours)
 
 @app.route('/add-stock', methods=['GET', 'POST'])
@@ -611,6 +630,68 @@ def add_stock():
     # GET request - render the form with popular stocks
     return render_template('add_stock.html', popular_stocks=popular_stocks)
 
+@app.route('/edit-stock/<string:ticker>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_stock(ticker):
+    # Get the stock to edit
+    stock = AvailableStock.query.filter_by(ticker=ticker).first_or_404()
+
+    if request.method == 'POST':
+        # Get form data
+        company_name = request.form.get('company_name')
+        initial_price = float(request.form.get('initial_price'))
+        total_volume = int(request.form.get('volume'))
+
+        # Validate data
+        if not company_name or initial_price <= 0 or total_volume <= 0:
+            flash('All fields are required and must be valid', 'danger')
+            return redirect(url_for('edit_stock', ticker=ticker))
+
+        # Check current owned volume before updating total volume
+        current_owned = db.session.query(db.func.sum(StocksOwned.quantity)).filter_by(
+            stock_owned=ticker).scalar() or 0
+
+        if total_volume < current_owned:
+            flash(f'Cannot set volume below current owned shares ({current_owned})', 'danger')
+            return redirect(url_for('edit_stock', ticker=ticker))
+
+        # Update stock data
+        stock.company_name = company_name
+        stock.initial_price = initial_price
+        stock.total_volume = total_volume
+
+        try:
+            db.session.commit()
+            flash(f'Stock {ticker} updated successfully', 'success')
+            return redirect(url_for('admin'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating stock: {str(e)}', 'danger')
+            return redirect(url_for('edit_stock', ticker=ticker))
+
+    # GET request - show the edit form
+    return render_template('edit_stock.html', stock=stock)
+
+@app.route('/toggle-stock/<string:ticker>')
+@login_required
+@admin_required
+def toggle_stock(ticker):
+    stock = AvailableStock.query.filter_by(ticker=ticker).first_or_404()
+
+    # Toggle the is_active status
+    stock.is_active = not stock.is_active
+
+    try:
+        db.session.commit()
+        status = "activated" if stock.is_active else "deactivated"
+        flash(f'Stock {ticker} {status} successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error toggling stock status: {str(e)}', 'danger')
+
+    return redirect(url_for('admin'))
+
 @app.route('/register', methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -637,25 +718,28 @@ def register():
     return render_template("sign_up.html")
 
 def is_market_open():
-    """Check if current time is within configured market hours"""
+
     market_hours = MarketHours.query.first()
     if not market_hours:
-        return False 
-    
+        return False
+
+    # Check if today is a holiday
+    today = datetime.date.today()
+    is_holiday = MarketHoliday.query.filter_by(holiday_date=today).first() is not None
+    if is_holiday:
+        return False
+
     now = datetime.datetime.now().time()
     try:
         market_open = datetime.datetime.strptime(market_hours.start_time, '%H:%M').time()
         market_close = datetime.datetime.strptime(market_hours.end_time, '%H:%M').time()
-        
+
         # Handle overnight markets (if close time is earlier than open time)
         if market_close < market_open:
             return now >= market_open or now <= market_close
         return market_open <= now <= market_close
     except ValueError:
         return False
-    
-
-
 
 @app.route('/login', methods=["GET", "POST"])
 def login():
@@ -663,73 +747,126 @@ def login():
         user = Users.query.filter_by(username=request.form.get("username")).first()
         if user and bcrypt.check_password_hash(user.password, request.form.get("password")):
             login_user(user)
-            
+
             # Process pending transactions if market is open
-            if is_market_open():  # Using the function we created earlier
+            if is_market_open():
                 pending_transactions = Transactions.query.filter_by(
                     user_id=user.id,
                     status='pending'
                 ).all()
-                
+
                 for transaction in pending_transactions:
                     if transaction.transaction_type == 'buy':
                         # Process buy transaction
                         if user.money >= transaction.amount:
                             user.money -= transaction.amount
-                            
+
                             # Update or create stock ownership
                             stock_owned = StocksOwned.query.filter_by(
                                 id=user.id,
                                 stock_owned=transaction.symbol
                             ).first()
-                            
+
                             if stock_owned:
                                 # Calculate new average price
                                 total_shares = stock_owned.quantity + transaction.quantity
                                 total_cost = (stock_owned.price_purchased * stock_owned.quantity) + transaction.amount
                                 new_avg_price = total_cost / total_shares
-                                
+
                                 stock_owned.quantity = total_shares
                                 stock_owned.price_purchased = new_avg_price
                             else:
                                 new_stock = StocksOwned(
                                     id=user.id,
                                     stock_owned=transaction.symbol,
-                                    name=transaction.symbol,  # You might want to store the name in Transactions
+                                    name=transaction.symbol,
                                     quantity=transaction.quantity,
                                     price_purchased=transaction.price
                                 )
                                 db.session.add(new_stock)
-                            
+
                             transaction.status = 'completed'
-                    
+
                     elif transaction.transaction_type == 'sell':
                         # Process sell transaction
                         stock_owned = StocksOwned.query.filter_by(
                             id=user.id,
                             stock_owned=transaction.symbol
                         ).first()
-                        
+
                         if stock_owned and stock_owned.quantity >= transaction.quantity:
                             user.money += transaction.amount
-                            
+
                             if stock_owned.quantity == transaction.quantity:
                                 db.session.delete(stock_owned)
                             else:
                                 stock_owned.quantity -= transaction.quantity
-                            
+
                             transaction.status = 'completed'
-                
+
                 db.session.commit()
-            
+
             return redirect(url_for("portfolio"))
-    
+
     return render_template("login.html")
 
 @app.route('/logout')
 def logout():
     logout_user()
     return redirect(url_for("home"))
+
+@app.route('/manage_holidays')
+@login_required
+@admin_required
+def manage_holidays():
+    holidays = MarketHoliday.query.order_by(MarketHoliday.holiday_date).all()
+    return render_template('manage_holidays.html', holidays=holidays)
+
+@app.route('/add_holiday', methods=['POST'])
+@login_required
+@admin_required
+def add_holiday():
+    holiday_name = request.form.get('holiday_name')
+    holiday_date_str = request.form.get('holiday_date')
+
+    try:
+        holiday_date = datetime.datetime.strptime(holiday_date_str, '%Y-%m-%d').date()
+
+        # Check if holiday already exists on this date
+        existing_holiday = MarketHoliday.query.filter_by(holiday_date=holiday_date).first()
+        if existing_holiday:
+            flash(f'A holiday ({existing_holiday.holiday_name}) is already set for this date', 'warning')
+            return redirect(url_for('manage_holidays'))
+
+        new_holiday = MarketHoliday(
+            holiday_name=holiday_name,
+            holiday_date=holiday_date
+        )
+
+        db.session.add(new_holiday)
+        db.session.commit()
+        flash(f'Holiday "{holiday_name}" added successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error adding holiday: {str(e)}', 'danger')
+
+    return redirect(url_for('manage_holidays'))
+
+@app.route('/delete_holiday/<int:holiday_id>')
+@login_required
+@admin_required
+def delete_holiday(holiday_id):
+    holiday = MarketHoliday.query.get_or_404(holiday_id)
+
+    try:
+        db.session.delete(holiday)
+        db.session.commit()
+        flash(f'Holiday "{holiday.holiday_name}" deleted successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting holiday: {str(e)}', 'danger')
+
+    return redirect(url_for('manage_holidays'))
 
 if __name__ == '__main__':
     app.run(debug=True)

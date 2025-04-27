@@ -10,14 +10,21 @@ import random
 
 
 
+from config import SQLALCHEMY_DATABASE_URI
+
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost/Stock_Trading_Users'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your-secret-key'
+
+app.secret_key = 'key'
+
+db = SQLAlchemy(app)
 
 bootstrap = Bootstrap5(app)
 
-db = SQLAlchemy(app)
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 

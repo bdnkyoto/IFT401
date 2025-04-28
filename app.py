@@ -206,6 +206,29 @@ def stock_preview():
     if not symbol:
         flash('No symbol provided', 'error')
         return redirect(url_for('trade'))
+    
+    # Get market hours and check if market is open
+    market_hours = MarketHours.query.first()
+    if not market_hours:
+        flash('Market hours not configured', 'error')
+        return redirect(url_for('trade'))
+
+    # Check if today is a holiday
+    today = datetime.date.today()
+    holiday = MarketHoliday.query.filter_by(holiday_date=today).first()
+
+    # Check if market is open
+    now = datetime.datetime.now().time()
+    market_open = datetime.datetime.strptime(market_hours.start_time, '%H:%M').time()
+    market_close = datetime.datetime.strptime(market_hours.end_time, '%H:%M').time()
+
+    is_market_open = False
+    if not holiday:  # Only check time if it's not a holiday
+        # Handle overnight markets
+        if market_close < market_open:  # Overnight market
+            is_market_open = now >= market_open or now <= market_close
+        else:
+            is_market_open = market_open <= now <= market_close
 
 
     admin_stock = AvailableStock.query.filter_by(ticker=symbol, is_active=True).first()
@@ -236,7 +259,8 @@ def stock_preview():
             'askPrice': admin_stock.initial_price,
             'currentPrice': admin_stock.initial_price,
             'user_owns_quantity': user_owns_quantity,
-            'is_admin_stock': True
+            'is_admin_stock': True,
+             'is_market_open': is_market_open
         }
         return render_template('stock_preview.html', stock_info=stock_info)
     else:
@@ -276,7 +300,8 @@ def stock_preview():
                 'dayHigh': day_high,
                 'dayLow': day_low,
                 'askPrice': ask_price,
-                'user_owns_quantity': user_owns_quantity
+                'user_owns_quantity': user_owns_quantity,
+                 'is_market_open': is_market_open
             }
             return render_template('stock_preview.html', stock_info=stock_info)
         except Exception as e:

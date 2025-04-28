@@ -117,6 +117,9 @@
         const price = parseFloat("{{ stock_info.askPrice }}");
         const totalPrice = quantity * price;
 
+
+    
+
         // Format the total price as currency
         const formattedTotalPrice = totalPrice.toLocaleString('en-US', {
             style: 'currency',
@@ -136,8 +139,18 @@
             currency: 'USD',
         });
 
+        
+
         // Confirmation message
-        const confirmationMessage = `Are you sure you would like to ${action} ${quantity} shares for ${totalPrice}?`;
+        const isMarketOpen = {{ 'true' if stock_info.is_market_open else 'false' }};
+    
+    // Build confirmation message
+    let confirmationMessage = `Are you sure you would like to ${action} ${quantity} shares for ${totalPrice}?`;
+    
+    if (!isMarketOpen) {
+        confirmationMessage += '\n\nNOTE: Market is currently closed. This will be a pending order.';
+    }
+    
 
         // Show confirmation dialog
         return confirm(confirmationMessage);
